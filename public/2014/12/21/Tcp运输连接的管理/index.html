@@ -1,0 +1,452 @@
+
+ <!DOCTYPE HTML>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  
+    <title>TCP运输连接的管理 | FengZiXu&#39;s Blog</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
+    
+    <meta name="author" content="FengZiXu">
+    
+    <meta name="description" content="tcp是面向连接的一种运输层的协议，它提供可靠的数据传输服务。任何一次利用TCP连接传输数据的过程都离不开，连接的创建，数据的传送，连接的释放。
+
+
+TCP连接的建立
+tcp连接的建立，也就是我们常说的三次握手的过程。tcp连接是基于客户端和服务器模式的，再每一次的通信中，客户端作为主动，服务端作为">
+    
+    
+    
+    
+    <link rel="alternative" href="/atom.xml" title="FengZiXu&#39;s Blog" type="application/atom+xml">
+    
+    
+    <link rel="icon" href="/img/favicon.ico">
+    
+    
+    <link rel="apple-touch-icon" href="/img/jacman.jpg">
+    <link rel="apple-touch-icon-precomposed" href="/img/jacman.jpg">
+    
+    <link rel="stylesheet" href="/css/style.css" type="text/css">
+
+</head>
+
+  <body>
+    <header>
+      <div>
+		
+			<div id="imglogo">
+				<a href="/"><img src="/img/logo.png" alt="FengZiXu&#39;s Blog" title="FengZiXu&#39;s Blog"/></a>
+			</div>
+			
+			<div id="textlogo">
+				<h1 class="site-name"><a href="/" title="FengZiXu&#39;s Blog">FengZiXu&#39;s Blog</a></h1>
+				<h2 class="blog-motto">不如就给自己最后一次机会，奔向或许永远无法到达的理想中，死在路上。</h2>
+			</div>
+			<div class="navbar"><a class="navbutton navmobile" href="#" title="菜单">
+			</a></div>
+			<nav class="animated">
+				<ul>
+					<ul>
+					 
+						<li><a href="/">首页</a></li>
+					
+						<li><a href="/archives">归档</a></li>
+					
+						<li><a href="/about">关于</a></li>
+					
+					<li>
+ 					
+					<form class="search" action="//google.com/search" method="get" accept-charset="utf-8">
+						<label>Search</label>
+						<input type="search" id="search" name="q" autocomplete="off" maxlength="20" placeholder="Search" />
+						<input type="hidden" name="q" value="site:fengzixu.net">
+					</form>
+					
+					</li>
+				</ul>
+			</nav>			
+</div>
+    </header>
+    <div id="container">
+      <div id="main" class="post" itemscope itemprop="blogPost">
+	<article itemprop="articleBody"> 
+		<header class="article-info clearfix">
+  <h1 itemprop="name">
+    
+      <a href="/2014/12/21/Tcp运输连接的管理/" title="TCP运输连接的管理" itemprop="url">TCP运输连接的管理</a>
+  </h1>
+  <p class="article-author">By
+       
+		<a href="http://fengzixu.net/about" title="FengZiXu" target="_blank" itemprop="author">FengZiXu</a>
+		
+  <p class="article-time">
+    <time datetime="2014-12-21T02:27:49.000Z" itemprop="datePublished"> 发表于 12月 21 2014</time>
+    
+  </p>
+</header>
+	<div class="article-content">
+		
+		
+		<div id="toc" class="toc-article">
+			<strong class="toc-title">文章目录</strong>
+		
+			<ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#TCP连接的建立"><span class="toc-number">1.</span> <span class="toc-text">TCP连接的建立</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#为什么要发送第三次确认报文"><span class="toc-number">2.</span> <span class="toc-text">为什么要发送第三次确认报文</span></a></li></ol>
+		
+		</div>
+		
+		<blockquote>
+<p>tcp是面向连接的一种运输层的协议，它提供可靠的数据传输服务。任何一次利用TCP连接传输数据的过程都离不开，连接的创建，数据的传送，连接的释放。</p>
+</blockquote>
+<p><br><br><br></p>
+<h2 id="TCP连接的建立">TCP连接的建立</h2>
+<p><br><br>tcp连接的建立，也就是我们常说的三次握手的过程。tcp连接是基于客户端和服务器模式的，再每一次的通信中，客户端作为主动，服务端作为被动。<br>进程的管理有PCB进程控制块，tcp连接的管理同样有TCB传输控制块，里面存放和很多再传输过程中需要的连接信息。</p>
+<ol>
+<li>对于服务器来说，再连接没有建立之前，我们要做的，就是做好准备，等待客户端的请求发过来。所以说，再连接建立的准备阶段，服务器的进程需要创建TCB传输控制块，并且将服务器进程设置为监听状态，以便能够随时收取到客户端传来的信息。<br><br></li>
+<li>客户端也同样需要创建TCB来做好传输信息的准备。之后便可以由客户端为起始点，发送TCP报文段与服务器端进行通讯。此时发送的报文段有几个比较特殊的情况，首先，此时的TCP报文段SYN=1,ACK=0.首部的信息如果被设置成这样就证明这是一个连接请求报文段。此报文段是不携带任何数据的，但是这个报文段却要占用一个序号。此时seq有一个初始值 x。此时，客户端进入三次握手中的第一个状态：同步已发送<br><br></li>
+<li>客户端请求的报文发送给服务器端之后。服务端接受到这个报文，即向客户端发送确认报文。此时报文段的首部，又有了一些变化，比如，SYN=1,ACK=1。此时表明，服务器发送的这个报文，就是同意连接的响应报文。并且确认号ack = x + 1，同时，这一次的报文段也不许携带任何的数据，但是却要占用一个序号，则seq有一个初值y。此时，服务器端进入三次握手当中的第二个状态：同步已接收。<br><br></li>
+<li>接下来便是TCP连接建立中，最重要的第三次握手，也是能够保证TCP连接可靠正确建立的一步。客户端再收到了服务器端发来的确认响应的报文之后，还要再向像服务器端发送一个确认报文来保证连接的正确建立。把ACK=1，此时的报文和前面两次握手的报文不同，这一次的报文可以携带一些数据，如果携带数据了，那么下一次发送报文的序号就是x+2,如果此次没有携带数据，那么就不会占用序号下一次发送的数据序号仍然是x+1.此时，客户端进入三次握手中的第三个状态，连接已建立。服务器端再收到这个确认报文的时候，也同样会进入这个状态，此时TCP的连接建立完成，可以正常发送数据。</li>
+</ol>
+<p><br><br><br></p>
+<h2 id="为什么要发送第三次确认报文">为什么要发送第三次确认报文</h2>
+<p><br></p>
+<p>设计协议的科学家们，还是考虑到了我们网络的实际情况。网络中如果A（客户端）再向B（服务端）建立TCP连接的过程中，如果因为网络环境差的话，A的第一次请求报文丢失了，超时重传机制会重新传递客户端的连接建立的请求报文，让连接正常建立，此时是没有人和问题的。但是，如果再传输的过程中，第一次的请求报文没有丢失，而是再传输的过程中滞留了，超时重传机制虽然可以像前面那样保证连接的正确建立，但是，如果在此连接释放的时候，之前滞留的那个请求报文又传递到了服务端，如果没有第三次确认的话，两次握手就建立连接，此时客户端觉得没有这个连接不发送任何信息，服务器端在第二次握手之后却一直在等待着客户端传来信息这时候就造成了死锁的情况，连接一直在建立明确什么事也不做。</p>
+  
+	</div>
+		<footer class="article-footer clearfix">
+<div class="article-catetags">
+
+<div class="article-categories">
+  <span></span>
+  <a class="article-category-link" href="/categories/计算机网络/">计算机网络</a>
+</div>
+
+
+  <div class="article-tags">
+  
+  <span></span> <a href="/tags/os/">os</a><a href="/tags/计算机网络/">计算机网络</a><a href="/tags/读书笔记/">读书笔记</a><a href="/tags/基础知识/">基础知识</a>
+  </div>
+
+</div>
+
+
+<div class="article-share" id="share">
+
+  <div data-url="http://fengzixu.net/2014/12/21/Tcp运输连接的管理/" data-title="TCP运输连接的管理 | FengZiXu&#39;s Blog" data-tsina="http://weibo.com/3626507773" class="share clearfix">
+  </div>
+
+</div>
+</footer>   	       
+	</article>
+	
+<nav class="article-nav clearfix">
+ 
+ <div class="prev" >
+ <a href="/2014/12/22/进程的概念/" title="多线程相关">
+  <strong>上一篇：</strong><br/>
+  <span>
+  多线程相关</span>
+</a>
+</div>
+
+
+<div class="next">
+<a href="/2014/12/07/Two-Years-With-You/"  title="Two Years With You">
+ <strong>下一篇：</strong><br/> 
+ <span>Two Years With You
+</span>
+</a>
+</div>
+
+</nav>
+
+	
+<section class="comment">
+	<div class="ds-thread"></div>
+</section>
+
+
+</div>  
+      <div class="openaside"><a class="navbutton" href="#" title="显示侧边栏"></a></div>
+
+  <div id="toc" class="toc-aside">
+  <strong class="toc-title">文章目录</strong>
+ 
+ <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#TCP连接的建立"><span class="toc-number">1.</span> <span class="toc-text">TCP连接的建立</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#为什么要发送第三次确认报文"><span class="toc-number">2.</span> <span class="toc-text">为什么要发送第三次确认报文</span></a></li></ol>
+ 
+  </div>
+
+<div id="asidepart">
+<div class="closeaside"><a class="closebutton" href="#" title="隐藏侧边栏"></a></div>
+<aside class="clearfix">
+
+  <div>
+<script charset="Shift_JIS" src="http://chabudai.sakura.ne.jp/blogparts/honehoneclock/honehone_clock_wh.js"></script>
+</div>
+
+
+  
+<div class="categorieslist">
+	<p class="asidetitle">分类</p>
+		<ul>
+		
+			<li><a href="/categories/CSAPP/" title="CSAPP">CSAPP<sup>2</sup></a></li>
+		
+			<li><a href="/categories/Life/" title="Life">Life<sup>1</sup></a></li>
+		
+			<li><a href="/categories/OS/" title="OS">OS<sup>2</sup></a></li>
+		
+			<li><a href="/categories/Windows/" title="Windows">Windows<sup>2</sup></a></li>
+		
+			<li><a href="/categories/密码学/" title="密码学">密码学<sup>1</sup></a></li>
+		
+			<li><a href="/categories/计算机网络/" title="计算机网络">计算机网络<sup>1</sup></a></li>
+		
+		</ul>
+</div>
+
+
+  
+<div class="tagslist">
+	<p class="asidetitle">标签</p>
+		<ul class="clearfix">
+		
+			<li><a href="/tags/读书笔记/" title="读书笔记">读书笔记<sup>6</sup></a></li>
+		
+			<li><a href="/tags/os/" title="os">os<sup>5</sup></a></li>
+		
+			<li><a href="/tags/csapp/" title="csapp">csapp<sup>2</sup></a></li>
+		
+			<li><a href="/tags/Windows-socket/" title="Windows socket">Windows socket<sup>1</sup></a></li>
+		
+			<li><a href="/tags/Life/" title="Life">Life<sup>1</sup></a></li>
+		
+			<li><a href="/tags/基础知识/" title="基础知识">基础知识<sup>1</sup></a></li>
+		
+			<li><a href="/tags/计算机网络/" title="计算机网络">计算机网络<sup>1</sup></a></li>
+		
+		</ul>
+</div>
+
+
+  <div class="linkslist">
+  <p class="asidetitle">友情链接</p>
+    <ul>
+      <li><a href="http://www.sdc1992.com/" target="_blank" title="WuChong">大川哥哥's Blog</a></li>
+      <li><a href="http://blog.csdn.net/xr_acmer" target="_blank" title="Hexo">My CSDN</a></li>
+    </ul>
+</div>
+
+  <div class="weiboshow">
+  <p class="asidetitle">新浪微博</p>
+ <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=2&ptype=1&speed=0&skin=1&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=3626507773&verifier=41ebbe82&dpc=1"></iframe>
+</div>
+
+
+  <div class="rsspart">
+	<a href="/atom.xml" target="_blank" title="rss">RSS 订阅</a>
+</div>
+
+</aside>
+</div>
+    </div>
+    <footer><div id="footer" >
+	
+	<div class="line">
+		<span></span>
+		<div class="author"></div>
+	</div>
+	
+	
+	<section class="info">
+		<p> 我会拼命的像个疯子一样的活着 <br/>
+			I would like a madman alive</p>
+	</section>
+	 
+	<div class="social-font" class="clearfix">
+		
+		<a href="http://weibo.com/3626507773" target="_blank" class="icon-weibo" title="weibo"></a>
+		
+		
+		<a href="https://github.com/fengzixu" target="_blank" class="icon-github" title="github"></a>
+		
+		
+		
+		
+		
+		
+		
+	</div>
+		<p class="copyright">Powered by <a href="http://hexo.io" target="_blank" title="hexo">hexo</a> and Theme by <a href="https://github.com/wuchong/jacman" target="_blank" title="Pacman">Jacman</a> © 2015 
+		
+		<a href="http://fengzixu.net/about" target="_blank" title="FengZiXu">FengZiXu</a>
+		
+		</p>
+</div>
+</footer>
+    <script src="/js/jquery-2.0.3.min.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.navbar').click(function(){
+    $('header nav').toggleClass('shownav');
+  });
+  var myWidth = 0;
+  function getSize(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+  };
+  var m = $('#main'),
+      a = $('#asidepart'),
+      c = $('.closeaside'),
+      o = $('.openaside');
+  $(window).resize(function(){
+    getSize(); 
+    if (myWidth >= 1024) {
+      $('header nav').removeClass('shownav');
+    }else
+    {
+      m.removeClass('moveMain');
+      a.css('display', 'block').removeClass('fadeOut');
+      o.css('display', 'none');
+      
+      $('#toc.toc-aside').css('display', 'none');
+        
+    }
+  });
+  c.click(function(){
+    a.addClass('fadeOut').css('display', 'none');
+    o.css('display', 'block').addClass('fadeIn');
+    m.addClass('moveMain');
+  });
+  o.click(function(){
+    o.css('display', 'none').removeClass('beforeFadeIn');
+    a.css('display', 'block').removeClass('fadeOut').addClass('fadeIn');      
+    m.removeClass('moveMain');
+  });
+  $(window).scroll(function(){
+    o.css("top",Math.max(80,260-$(this).scrollTop()));
+  });
+});
+</script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var ai = $('.article-content>iframe'),
+      ae = $('.article-content>embed'),
+      t  = $('#toc'),
+      h  = $('article h2')
+      ah = $('article h2'),
+      ta = $('#toc.toc-aside'),
+      o  = $('.openaside'),
+      c  = $('.closeaside');
+  if(ai.length>0){
+    ai.wrap('<div class="video-container" />');
+  };
+  if(ae.length>0){
+   ae.wrap('<div class="video-container" />');
+  };
+  if(ah.length==0){
+    t.css('display','none');
+  }else{
+    c.click(function(){
+      ta.css('display', 'block').addClass('fadeIn');
+    });
+    o.click(function(){
+      ta.css('display', 'none');
+    });
+    $(window).scroll(function(){
+      ta.css("top",Math.max(140,320-$(this).scrollTop()));
+    });
+  };
+});
+</script>
+
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var $this = $('.share'),
+      url = $this.attr('data-url'),
+      encodedUrl = encodeURIComponent(url),
+      title = $this.attr('data-title'),
+      tsina = $this.attr('data-tsina'),
+      description = $this.attr('description');
+  var html = [
+  '<a href="#" class="overlay" id="qrcode"></a>',
+  '<div class="qrcode clearfix"><span>扫描二维码分享到微信朋友圈</span><a class="qrclose" href="#share"></a><strong>Loading...Please wait</strong><img id="qrcode-pic" data-src="http://s.jiathis.com/qrcode.php?url=' + encodedUrl + '"/></div>',
+  '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="article-share-facebook" target="_blank" title="Facebook"></a>',
+  '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="article-share-twitter" target="_blank" title="Twitter"></a>',
+  '<a href="#qrcode" class="article-share-qrcode" title="QRcode"></a>',
+  '<a href="http://widget.renren.com/dialog/share?resourceUrl=' + encodedUrl + '&srcUrl=' + encodedUrl + '&title=' + title +'" class="article-share-renren" target="_blank" title="人人"></a>',
+  '<a href="http://service.weibo.com/share/share.php?title='+title+'&url='+encodedUrl +'&ralateUid='+ tsina +'&searchPic=true&style=number' +'" class="article-share-weibo" target="_blank" title="Weibo"></a>',
+  '<span title="Share to"></span>'
+  ].join('');
+  $this.append(html);
+  $('.article-share-qrcode').click(function(){
+    var imgSrc = $('#qrcode-pic').attr('data-src');
+    $('#qrcode-pic').attr('src', imgSrc);
+    $('#qrcode-pic').load(function(){
+        $('.qrcode strong').text(' ');
+    });
+  });
+});     
+</script>
+
+
+
+<script type="text/javascript">
+  var duoshuoQuery = {short_name:"fengzixu"};
+  (function() {
+    var ds = document.createElement('script');
+    ds.type = 'text/javascript';ds.async = true;
+    ds.src = '//static.duoshuo.com/embed.js';
+    ds.charset = 'UTF-8';
+    (document.getElementsByTagName('head')[0] 
+    || document.getElementsByTagName('body')[0]).appendChild(ds);
+  })();
+</script> 
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.article-content').each(function(i){
+    $(this).find('img').each(function(){
+      if ($(this).parent().hasClass('fancybox')) return;
+      var alt = this.alt;
+      if (alt) $(this).after('<span class="caption">' + alt + '</span>');
+      $(this).wrap('<a href="' + this.src + '" title="' + alt + '" class="fancybox"></a>');
+    });
+    $(this).find('.fancybox').each(function(){
+      $(this).attr('rel', 'article' + i);
+    });
+  });
+  if($.fancybox){
+    $('.fancybox').fancybox();
+  }
+}); 
+</script>
+
+
+
+
+
+<div id="totop">
+<a title="返回顶部"><img src="/img/scrollup.png"/></a>
+</div>
+
+<script src="/js/totop.js"></script>
+
+
+
+
+  </body>
+</html>

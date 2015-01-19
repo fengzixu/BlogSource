@@ -1,0 +1,565 @@
+
+ <!DOCTYPE HTML>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  
+    <title>自己实现和malloc有关的函数 | FengZiXu&#39;s Blog</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1,user-scalable=no">
+    
+    <meta name="author" content="FengZiXu">
+    
+    <meta name="description" content="早晨起来看了一篇博文，关于实现malloc，感觉比较有兴趣，遂读之，实现之，不在做个看客，实践最重要。把其中我遇到的问题和我觉得需要注意的点摆上来，供大家参考。声明：本文的主题思想还是原博主的，我插的图部分也是原博主的，写在我的博客里就是想添加些自己的理解供自己复习，没任何想侵占他人果实的想法。
+
+">
+    
+    
+    
+    
+    <link rel="alternative" href="/atom.xml" title="FengZiXu&#39;s Blog" type="application/atom+xml">
+    
+    
+    <link rel="icon" href="/img/favicon.ico">
+    
+    
+    <link rel="apple-touch-icon" href="/img/jacman.jpg">
+    <link rel="apple-touch-icon-precomposed" href="/img/jacman.jpg">
+    
+    <link rel="stylesheet" href="/css/style.css" type="text/css">
+
+</head>
+
+  <body>
+    <header>
+      <div>
+		
+			<div id="imglogo">
+				<a href="/"><img src="/img/logo.png" alt="FengZiXu&#39;s Blog" title="FengZiXu&#39;s Blog"/></a>
+			</div>
+			
+			<div id="textlogo">
+				<h1 class="site-name"><a href="/" title="FengZiXu&#39;s Blog">FengZiXu&#39;s Blog</a></h1>
+				<h2 class="blog-motto">不如就给自己最后一次机会，奔向或许永远无法到达的理想中，死在路上。</h2>
+			</div>
+			<div class="navbar"><a class="navbutton navmobile" href="#" title="菜单">
+			</a></div>
+			<nav class="animated">
+				<ul>
+					<ul>
+					 
+						<li><a href="/">首页</a></li>
+					
+						<li><a href="/archives">归档</a></li>
+					
+						<li><a href="/about">关于</a></li>
+					
+					<li>
+ 					
+					<form class="search" action="//google.com/search" method="get" accept-charset="utf-8">
+						<label>Search</label>
+						<input type="search" id="search" name="q" autocomplete="off" maxlength="20" placeholder="Search" />
+						<input type="hidden" name="q" value="site:fengzixu.net">
+					</form>
+					
+					</li>
+				</ul>
+			</nav>			
+</div>
+    </header>
+    <div id="container">
+      <div id="main" class="post" itemscope itemprop="blogPost">
+	<article itemprop="articleBody"> 
+		<header class="article-info clearfix">
+  <h1 itemprop="name">
+    
+      <a href="/2014/11/19/自己实现和malloc有关的函数/" title="自己实现和malloc有关的函数" itemprop="url">自己实现和malloc有关的函数</a>
+  </h1>
+  <p class="article-author">By
+       
+		<a href="http://fengzixu.net/about" title="FengZiXu" target="_blank" itemprop="author">FengZiXu</a>
+		
+  <p class="article-time">
+    <time datetime="2014-11-18T17:15:28.000Z" itemprop="datePublished"> 发表于 11月 19 2014</time>
+    
+  </p>
+</header>
+	<div class="article-content">
+		
+		
+		<div id="toc" class="toc-article">
+			<strong class="toc-title">文章目录</strong>
+		
+			<ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#malloc的自我介绍"><span class="toc-number">1.</span> <span class="toc-text">malloc的自我介绍</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Linux内存管理"><span class="toc-number">2.</span> <span class="toc-text">Linux内存管理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Linux进程级内存管理"><span class="toc-number">3.</span> <span class="toc-text">Linux进程级内存管理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#对堆的管理"><span class="toc-number">4.</span> <span class="toc-text">对堆的管理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#brk与sbrk"><span class="toc-number">5.</span> <span class="toc-text">brk与sbrk</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Linux给进程的资源限制"><span class="toc-number">6.</span> <span class="toc-text">Linux给进程的资源限制</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#malloc函数的实现"><span class="toc-number">7.</span> <span class="toc-text">malloc函数的实现</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#寻找合适的block"><span class="toc-number">7.1.</span> <span class="toc-text">寻找合适的block</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#分配一个新的Block"><span class="toc-number">7.2.</span> <span class="toc-text">分配一个新的Block</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#解决内碎片问题"><span class="toc-number">7.3.</span> <span class="toc-text">解决内碎片问题</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#mallco函数的具体实现"><span class="toc-number">7.4.</span> <span class="toc-text">mallco函数的具体实现</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#calloc函数的实现"><span class="toc-number">8.</span> <span class="toc-text">calloc函数的实现</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#free函数的实现"><span class="toc-number">9.</span> <span class="toc-text">free函数的实现</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#realloc函数的实现"><span class="toc-number">10.</span> <span class="toc-text">realloc函数的实现</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#最后的测试和总结"><span class="toc-number">11.</span> <span class="toc-text">最后的测试和总结</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#源代码：戳我"><span class="toc-number">12.</span> <span class="toc-text">源代码：戳我</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Important_tips："><span class="toc-number">13.</span> <span class="toc-text">Important tips：</span></a></li></ol>
+		
+		</div>
+		
+		<blockquote>
+<p>早晨起来看了一篇博文，关于实现malloc，感觉比较有兴趣，遂读之，实现之，不在做个看客，实践最重要。把其中我遇到的问题和我觉得需要注意的点摆上来，供大家参考。<br>声明：本文的主题思想还是原博主的，我插的图部分也是原博主的，写在我的博客里就是想添加些自己的理解供自己复习，没任何想侵占他人果实的想法。</p>
+</blockquote>
+<p><br></p>
+<h2 id="malloc的自我介绍">malloc的自我介绍</h2>
+<p><br><br>大家都清楚，malloc是做动态内存分配用的，与他相关的还有free和realloc。<br>malloc的正式定义如下所示：</p>
+<pre><code><span class="keyword">void</span>* malloc(size_t <span class="keyword">size</span>);
+</code></pre><p>这就是malloc函数的原型.malloc函数主要是在堆中进行分配内存的，每次在调用malloc函数的时候至少会分配size字节大小的内存空间。也可以看到的是，malloc函数返回一个指针。这个指针值指向的应该是所分配内存区域中的起始部分。在我们不断用malloc分配内存的时候，不会出现分配重叠的现象，也就是说，同一块内存区域不会被分配两次，除非有一次分配完之后又用free释放掉。</p>
+<p><br></p>
+<h2 id="Linux内存管理">Linux内存管理</h2>
+<p><br></p>
+<ol>
+<li>物理地址与逻辑地址的关系<br>既然是关于内存管理，又是在Linux平台下实现，那么利用用到Linux内存管理的知识。<br>Linux内存管理中，普遍用了一种计算机当中很重要的抽象叫做虚拟存储器。<a href="http://fengzixu.net/2014/11/12/%E9%87%8D%E8%AF%BBCSAPP%EF%BC%88%E7%AC%AC%E4%B8%80%E7%AB%A0%EF%BC%89/" target="_blank" rel="external">CSAPP</a>这篇文章中我做了一些解释，大体上就是让每一个进程在运行的时候都看作自独享了2^N次方字节的内存，N是计算机子长，这样的话，方面我们的编程和管理。在学操作系统的时候，虽然学过了逻辑地址到物理地址的转化，但是还是没明白为什么，今天才知道，因为在汇编的那一层中，由于程序运行时所看到的都是虚拟的内存地址，要真正的实现对内存的操作，就要把我们一开始的虚拟的逻辑地址转换成真正的物理内存地址，这样才能够达到目的。</li>
+<li>内存的管理形式<br>学过OS的都明白，内存管理当中有段式管理，页式管理以及段页式管理。也就是说，在内存管理当中， 内存的管理单位不是一个字节，也不是一位，而是一页。每一页都有固定的大小，具体的详情，想了解的可以戳这里<a href="http://blog.csdn.net/xr_acmer/article/details/24792143" target="_blank" rel="external">操作系统中的内存存储管理</a>。在操作系统中，管理内存存储或者说是管理逻辑地址到物理地址映射的结构中有一个比较重要，就是页表。页表中有页号，根据偏移量可以找到表中对应的项，然后就可以通过这些数据定位本页的信息被存储到的真实的物理内存地址。所以，如果是利用页式存储来管理内存的话，那么逻辑地址应该有两部分，一部分是页号，另一部分是偏移量。<br><img src="http://blog-codinglabs-org.qiniudn.com/image/a-malloc-tutorial-01.png" alt=""><br>上图分别是机器子长为64位和32位的内存的逻辑地址形式。</li>
+</ol>
+<p><img src="http://img.my.csdn.net/uploads/201411/14/1415928966_2219.png" alt=""><br>上图显示了如何容逻辑地址到真实物理地址的转化，学操作系统的时候划过很多次，原博主的感觉简略了一点，所以自己花了一个。</p>
+<p>3.内存的调度<br>（看了原博主的文章，有点相见恨晚的感觉，因为这位大牛也是读过CSAPP的人，ALI的大神）<br>我们的程序在需要数据的时候，总会根据指令中的虚拟内存地址通过页表映射到真实的物理内存上，然后找到我们需要的数据。但是，页表也是有大小的，如果一旦我们需要的那一页，页表中没有，那么就会发生缺页中断现象。此时就会从磁盘中把相应的那一块调入到内存中来。这期间涉及到了缺页中断算法，替换算法等等。</p>
+<ol>
+<li>聪明的科学家们<br>计算机就是为了能让重复性的工作得到更高的效率。为了加快信息的传输，我们在内存和CPU之间设立了高速缓存，现在在地址映射查找页表的时候，我们同样会遇到两次访问相同的页表项的问题。内存访问毕竟还是很慢，所以科学家们也通过OS的局部性原理，借鉴高速缓存的处理办法，在地址映射的过程中加入了TLB（我们学的时候管他叫做快表）。<br>（1）如果在页表中查找的时候找到需要的一项，在进行下一步的时候也需要把这一项写入到TLB中。<br>（2）如果页表中没有找到需要的，在硬盘中找到之后，不但要将这一项写回页表，还要把这一项加入到TLB中。<br>所以，在地址映射的时候，首先访问的应该是TLB，没有的再去找页表，找到的话执行（1）操作，找不到的话，说明缺页了，则执行第二步。</li>
+</ol>
+<p>图示如下，大家可以参考我上面那篇关于内存管理的文章看一看，很容易理解。<br><img src="http://blog-codinglabs-org.qiniudn.com/image/a-malloc-tutorial-03.png" alt=""></p>
+<p> <br></p>
+<h2 id="Linux进程级内存管理">Linux进程级内存管理</h2>
+<p><br><br>以64bit的系统为例来说，地址空间应该是2^64字节。但是实际用到的只有其中的47bit是可用的，其余的17位作为扩展。内存的模型是高地址端为起始端，随着内存的使用，开辟空间的时候，地址不是向上增长，而是向下减少。高地址部分，也就是起点，是操作系统专用的0xFFFF800000000000 ~ 0xFFFFFFFFFFFFFFFF，中间隔开一段用作以后扩展的空间，最后是属于用户的部分0x0000000000000000 ~ 0x00007FFFFFFFFFFF。</p>
+<p>我们平时所运行的程序，都是在用户空间进行创建和删除内存空间的，操作系统的部分是不能够让我们直接去访问的。对于整个的一段用户空间来说，分为了几个部分，每个部分存储的东西或者用作都是有特殊的规定。</p>
+<p><img src="http://blog-codinglabs-org.qiniudn.com/image/a-malloc-tutorial-04.png" alt=""><br>在用户空间中分为这样几个区域：</p>
+<ul>
+<li>code:假设我们写了一个程序。最后编译链接所生成的机器码就是存在这里面</li>
+<li>date:存储了初始化的全局变量(个人理解是属于静态存储区，因为全局变量也就是静态变量)</li>
+<li>BSS：未初始化的全局变量</li>
+<li>Heap：这一部分叫做堆。像malloc，new这些动态分配内存的函数一般来说都是从堆中开辟内存空间的。并且要注意的是，堆和栈有一个不同点就是，堆在开辟新的空间的时候是从低地址向高地址扩充的。</li>
+<li>Mapping Area：这里是与mmap系统调用相关的区域。大多数实际的malloc实现会考虑通过mmap分配较大块的内存区域，本文不讨论这种情况。这个区域自高地址向低地址增长（这里不太清楚，是摘抄自原博文的）</li>
+<li>Stack：这也就是栈，一般来说，在函数调用，或者自动变量的存储上，都会用到这里，栈的扩张是从高地址向低地址扩充。</li>
+</ul>
+<p><br></p>
+<h2 id="对堆的管理">对堆的管理</h2>
+<p><br><br>malloc函数一般都是在堆内存中开辟所需要的内存空间。<br>进程看到的都是虚拟的地址空间，堆内存的虚拟地址空间部分也理应要映射到物理内存中。由于实际的物理内存空间有限，所以堆内存的的全部空间不能够一次性全都映射到物理内存中，只能映射一部分。所以linux中就设置了一个break指针来进行管理.从堆的起始地址开始，一直到break指针指向的地方位置，都是虚拟的堆内存空间能够映射到实际物理内存的部分。也就是说， 在程序运行的过程中，只能使用这些被映射的部分，因为只有映射到物理内存上了，你才能够真正的使用，光给进程虚拟的内存地址是没用的。<br><br><br><br></p>
+<h2 id="brk与sbrk">brk与sbrk</h2>
+<p><br></p>
+<pre><code> <span class="type">int</span> brk(<span class="type">void</span> *<span class="keyword">addr</span>)；
+ <span class="type">void</span> *sbrk(intptr_t increment);
+</code></pre><p>两个函数都有着自己的作用。brk的作用是设置break指针的值。而sbrk是把break的值从现在的状态移动increment个增量。brk成功运行返回0，否则返回-1.sbrk成功的时候返回break再没增加之前的值，而失败的时候会返回(void *)-1。<br>在设置break值的时候，由于内存是按页来进行内存映射的，逻辑上的每一页映射到物理内存中的每一块，或者是每一帧。如果设置的break没有指向到某一个页的边界，他会自动的向后指向一个完整的页，也就是说实际设置的break的值可能会大一些。<br><br><br><br></p>
+<h2 id="Linux给进程的资源限制">Linux给进程的资源限制</h2>
+<p>每一个进程所享用的资源不是无限制的，包括这个进程所占用的内存空间。linux中有相应的API可以获取到一个进程所能够享用的资源的上限值。<br>每一个进程都有一个rlimit的结构体，用于存储这个进程的资源上限值。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">struct</span> rlimit {</div><div class="line">rlim_t rlim_cur;  <span class="comment">/* Soft limit */</span></div><div class="line">rlim_t rlim_max;  <span class="comment">/* Hard limit (ceiling for rlim_cur) */</span>};</div></pre></td></tr></table></figure>
+
+<p>其中rlim_cur是软限制，而rlim_max是硬限制。也就是说，我们可以通过更改软限制的值也更改一个进程所能够拥有的资源，但是不能够超过硬限制的值，硬限制的值我们是不能够改动的。<br><br></p>
+<h2 id="malloc函数的实现">malloc函数的实现</h2>
+<p><br><br>将堆内存的空间以块的形式组织起来，每一块的空间都由数据区和记录区组成。数据区是真正可用的内存空间，malloc返回的地址也是数据区的首地址，记录区主要是用来记录这一块空间内的数据区大小，指针，空闲位等等。可以将堆内存空间中的每一个块抽象成一个链表中的一个节点。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">typedef</span> <span class="keyword">struct</span> s_block *t_block;</div><div class="line"><span class="keyword">struct</span> s_block {</div><div class="line">    size_t size;  <span class="comment">/* 数据区大小 */</span></div><div class="line">    t_block next; <span class="comment">/* 指向下个块的指针 */</span></div><div class="line">    <span class="keyword">int</span> <span class="built_in">free</span>;     <span class="comment">/* 是否是空闲块 */</span></div><div class="line">    <span class="keyword">int</span> padding;  <span class="comment">/* 填充4字节，保证meta块长度为8的倍数 */</span></div><div class="line">    <span class="keyword">char</span> data[<span class="number">1</span>]  <span class="comment">/* 这是一个虚拟字段，表示数据块的第一个字节，长度不应计入meta */</span></div><div class="line">};</div></pre></td></tr></table></figure>
+
+<ul>
+<li><h3 id="寻找合适的block">寻找合适的block</h3>
+<p><br><br>一般来说在进行内存分配的时候，有两种分配方法，一种是首次适应，一种是最佳适应。在遍历的时候要时刻记下我们当前遍历的这个块，以便如果一旦没有在现有的块中找到，要新开辟一个块的时候，可以利用最后一次遍历的块和新开辟的利用指针连接起来。<br>首次适应：从起始地址开始，一直到能够找到一个大于等于要求大小的内存空间位置，是第一个满足条件的。<br>最佳适应：基本上要遍历所有空闲的block一遍，找到最接近我们要求大小的块。</p>
+</li>
+<li><h3 id="分配一个新的Block">分配一个新的Block</h3>
+<p>如果遍历完所有额Block都没有发现大小合适的，那么就需要新开辟一个block块。主要是靠移动Break指针来进行分配的，调用sbrk这个系统函数。</p>
+</li>
+</ul>
+<p>上面两个功能的代码如下：<br><br></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div></pre></td><td class="code"><pre><div class="line"><span class="comment">/*编写一个查找一个合适块的函数，利用首次适应算法*/</span></div><div class="line">t_block find_a_block(t_block *last,size_t size){</div><div class="line"></div><div class="line">        t_block temp = firstblock;	<span class="comment">//获取链表的头</span></div><div class="line">        <span class="keyword">while</span>(temp&&!(temp.<span class="built_in">free</span>&&temp.size&gt;=size)){</div><div class="line">                *last = temp;	<span class="comment">//保存当前遍历的块，进入循环中的都是不合格的块</span></div><div class="line">                temp = temp-&gt;next;</div><div class="line">        }</div><div class="line">        <span class="keyword">return</span> temp;</div><div class="line">}</div><div class="line"></div><div class="line"></div><div class="line"><span class="comment">/*如果现有的块都不能满足，则要开辟一个新的块*/</span></div><div class="line"></div><div class="line">t_block add_block(t_block *last,size_t size){</div><div class="line"></div><div class="line">        t_block t = sbrk(<span class="number">0</span>);    <span class="comment">//获取现在的break指针</span></div><div class="line">        <span class="keyword">if</span>(sbrk(BLOCK_SIZE+size) == (<span class="keyword">void</span>*)-<span class="number">1</span>)  <span class="comment">//判断是否移动指针成功</span></div><div class="line">                <span class="keyword">return</span> NULL;</div><div class="line">        t-&gt;size = size;         <span class="comment">//设置好新块的详细信息</span></div><div class="line">        t-&gt;next = NULL;</div><div class="line">        <span class="keyword">if</span>(last)                        <span class="comment">//接上最后新分配的节点</span></div><div class="line">                last-&gt;next = t;</div><div class="line">        t-&gt;<span class="built_in">free</span> = <span class="number">0</span>;                    <span class="comment">//初始化信息</span></div><div class="line">        <span class="keyword">return</span> t;</div><div class="line"></div><div class="line">}</div></pre></td></tr></table></figure>
+
+<p><br></p>
+<ul>
+<li><h3 id="解决内碎片问题">解决内碎片问题</h3>
+<br><br>我们都知道在使用首次适应内存分配方式的时候，可能会出现内碎片增多的问题 ，因为有可能很小的一块占用了一块很大的内存空间。所以，如果内碎片的大小 完全能够分裂出一个完整的block来的话，这样会提高内存利用率。</li>
+</ul>
+<p><img src="http://blog-codinglabs-org.qiniudn.com/image/a-malloc-tutorial-07.png" alt=""></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">void</span> split_block(t_block b, size_t size){</div><div class="line"> </div><div class="line">         t_block newone = b-&gt;data+s;     <span class="comment">//跨过前一个块的整个数据区</span></div><div class="line">         newone-&gt;size = b-&gt;size - s - BLOCK_SIZE;        <span class="comment">//新分出来的数据区的大小</span></div><div class="line">         newone-&gt;<span class="built_in">free</span> = <span class="number">1</span>;</div><div class="line">         newone-&gt;next = b-&gt;next;</div><div class="line">         b-&gt;next = newone;       <span class="comment">//把分开的节点接起来</span></div><div class="line">         b-&gt;size = size;</div><div class="line"> }</div></pre></td></tr></table></figure>
+
+<p><br></p>
+<ul>
+<li><h3 id="mallco函数的具体实现">mallco函数的具体实现</h3>
+<br><br>首先要创建一个链表的头部first_block.另外，加入我们已经创建了一些block，在利用malloc开辟内存空间的时候可以查找这些已经存在的块，看有没有合适的。如果有的话，要检查，分配完我所需要的空间之后，是否还留有剩余的空间可以进行block分裂，也就是处理内碎片。（PS:原博主的文章说希望Malloc函数分配的数据区的内存大小尽量为8字节的倍数，说是要对齐，如果不是8的倍数的时候可能还会合理的进行扩大，不知道为什么，等搞懂了再写一篇关于这个的东西出来）当然，在处理内碎片的时候要判断剩余的空间至少要满足BLOCK_SIZE（meta-data的大小，也就是记录信息的那个节点）+8。<br>如果没有合适的块，那么就需要重新开辟一段新的内存空间，这个时候也就需要break指针的操作。</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">void</span> *<span class="built_in">malloc</span>(size_t size){</div><div class="line"></div><div class="line">        t_block t,b,last;</div><div class="line">        size_t s = align8(size);</div><div class="line">        <span class="keyword">if</span>(first_block) <span class="comment">//如果链表不为空，也就是之前已经在属于堆的内存部分开辟了一些空间</span></div><div class="line">        {</div><div class="line">                last = first_block;     <span class="comment">//保存链表头</span></div><div class="line">                b = find_a_block(&last,s);      <span class="comment">//找看是否有合适的块</span></div><div class="line">                <span class="keyword">if</span>(b)   <span class="comment">//找到</span></div><div class="line">                {</div><div class="line">                        <span class="keyword">if</span>((b-&gt;size-s)&gt;=(BLOCK_SIZE+<span class="number">8</span>))         <span class="comment">//看是否可以处理内碎片 </span></div><div class="line">                                split_block(b,s);</div><div class="line">                        b-&gt;<span class="built_in">free</span> = <span class="number">0</span>;            <span class="comment">//把剩余的部分已经分裂出去，剩下的都已经用完了，所以不再可用</span></div><div class="line"></div><div class="line">                }</div><div class="line"></div><div class="line">                <span class="keyword">else</span>{   <span class="comment">//如果没找到合适的</span></div><div class="line"></div><div class="line">                        b = add_block(last,size);       <span class="comment">//在末尾添加一块        </span></div><div class="line">                        <span class="keyword">if</span>(!b)</div><div class="line">                                <span class="keyword">return</span> NULL;</div><div class="line"></div><div class="line">                   }</div><div class="line">        }</div><div class="line">        <span class="keyword">else</span>{</div><div class="line">        <span class="comment">//如果链表是空的，那么就把这个作为链表的头部</span></div><div class="line"></div><div class="line">                b = add_block(NULL,size);</div><div class="line">                <span class="keyword">if</span>(!b)</div><div class="line">                        <span class="keyword">return</span> NULL;</div><div class="line">                first_block = b;</div><div class="line">        }</div><div class="line">       <span class="keyword">return</span> b-&gt;data;</div><div class="line"></div><div class="line"></div><div class="line"></div><div class="line">}</div></pre></td></tr></table></figure>
+
+<p><br></p>
+<h2 id="calloc函数的实现">calloc函数的实现</h2>
+<p><br><br>实现完malloc函数，对于calloc函数来说需要做的就只是将数据区的值置为0.<br>看原来博主的博文时，发现了一个我不理解的地方就是size_t这个数据类型，因为作者把一个指针的值保存在了这个数据类型的变量里面，觉得有点不懂，查了一下文档。size_t是无符号整数类型的一个别名。他能够表示所有在内存中对象的大小，并且作为sizeof运算符的返回值。为什么要用这个数据类型，主要是为了不同平台之间的移植，因为对于Int longint等等这些数据类型，在不同的机器和平台上的结果可能不一样，所以才会出现这种通用的数据类型。</p>
+<p>并且，由于我们之前在设置数据区大小的时候，都是8字节的倍数，那么在置为0的时候也不用一个字节一个字节的设置，可以每次设置八字节一组把他们置为0.</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div></pre></td><td class="code"><pre><div class="line"></div><div class="line"><span class="keyword">void</span> *<span class="built_in">calloc</span>(size_t number, size_t size){</div><div class="line"></div><div class="line">        size_t *ptr;</div><div class="line">        size_t s8,i;</div><div class="line">        ptr = <span class="built_in">malloc</span>(number*size);</div><div class="line">        <span class="keyword">if</span>(ptr){</div><div class="line">        </div><div class="line">        s8 = align8(number*size)&gt;&gt;<span class="number">3</span>;   <span class="comment">//算出有多少个八个字节</span></div><div class="line">        <span class="keyword">for</span>(i = <span class="number">0</span>; i &lt; s8; i ++)        <span class="comment">//以八个字节为单位进行初始化</span></div><div class="line">        </div><div class="line">                ptr[i] = <span class="number">0</span>;</div><div class="line">        }</div><div class="line">        <span class="keyword">return</span> ptr;</div><div class="line">}</div></pre></td></tr></table></figure>
+
+<p><br></p>
+<h2 id="free函数的实现">free函数的实现</h2>
+<p><br><br>free函数的实现并没有想象当中那么容易。</p>
+<ol>
+<li>要首先确定传进来的地址是不是有效地址，即是不是在first和break范围之内的值，并且还要确定要释放的这一段的内存空间是不是malloc函数创建的。</li>
+<li>如何解决释放空间后的碎片问题</li>
+</ol>
+<p>想对于第一个问题中的确定要释放的这一块是不是malloc函数创建的，可以在原来的meta结构体中添加一个指针值，这个指针值存储在用malloc创建块的时候数据区的地址。这样的话，在free函数接受传进来的地址值时首先和这个指针值进行比，如果不相等的话，那么就证明不是malloc分配的内存空间可以拒绝释放。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div></pre></td><td class="code"><pre><div class="line">t_block get_block_add(<span class="keyword">void</span> *p){                 <span class="comment">//获得这一块中meta的地址，找到magic_ptr返回</span></div><div class="line"></div><div class="line">        t_block temp = p;</div><div class="line">        <span class="keyword">return</span> p = (temp -= BLOCK_SIZE);</div><div class="line">}</div><div class="line"></div><div class="line"><span class="keyword">int</span> judge_ptr(<span class="keyword">void</span> *p){         <span class="comment">//传递进来的是数据区的地址，因为用户也只能够得到数据区的地址</span></div><div class="line">        </div><div class="line">        <span class="keyword">if</span>(first_block){</div><div class="line">        </div><div class="line">        <span class="keyword">if</span>(p&gt;first_block&&p&lt;sbrk(<span class="number">0</span>))    <span class="comment">//如果传递进来的地址在堆的可映射合法空间</span></div><div class="line">                <span class="keyword">return</span> p==get_block_add(p)-&gt;magic_ptr;  <span class="comment">//查看穿进来的地址和malloc申请空间时设置的数据区地址是否相等</span></div><div class="line">        }       </div><div class="line">        </div><div class="line">        <span class="keyword">return</span> <span class="number">0</span>;</div><div class="line">}</div></pre></td></tr></table></figure>
+
+<p><br><br>在判断完传进来的指针是有效的指针之后，释放完内存空间在内存中就会留有相应的内存碎片。所以free函数采用，如果释放完某一段的内存空间的时候，如果周围还有空闲的内存区域就把他们都合并起来。这类似于内存管理中的连续分配方式中的伙伴系统，只不过伙伴系统在分配和回收的时候都有相应比较特殊的规定。所以，为了一个节点的两端都能够进行连接，可以把原来的结构体改成双向链表。<br><br></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">void</span> <span class="built_in">free</span>(<span class="keyword">void</span> *p){</div><div class="line"></div><div class="line">        t_block ptr;</div><div class="line">        <span class="keyword">if</span>(judge_ptr(p))        <span class="comment">//判断指针是否有效</span></div><div class="line">        {</div><div class="line"></div><div class="line">                ptr = get_block_add(p);         <span class="comment">//获取meta数据块的指针</span></div><div class="line">                ptr-&gt;<span class="built_in">free</span> = <span class="number">1</span>;                  <span class="comment">//这个区域被释放，空闲设为正</span></div><div class="line">                <span class="keyword">if</span>(ptr-&gt;pre && ptr-&gt;pre-&gt;<span class="built_in">free</span>)  <span class="comment">//前面不为空，并且是空闲的，进行合并，之所以要判断是否为空闲，因为合并函数一直都是向后合并</span></div><div class="line">                        ptr = merge_block(ptr-&gt;pre);</div><div class="line">                <span class="keyword">else</span> <span class="keyword">if</span>(ptr-&gt;next)              <span class="comment">//如果后面的不为空，合并函数内部可以判断是否后面的块为空闲，但是不再改动指针，因为合并之后的空闲区域地址就是我们要释放</span></div><div class="line">   的这一块的地址。</div><div class="line">                        merge_block(ptr);</div><div class="line">                <span class="keyword">else</span>    </div><div class="line">                {</div><div class="line">                        <span class="keyword">if</span>(ptr-&gt;pre)            <span class="comment">//如果两边都不是空，还是有两中可能，一种是两边什么都没有，这一块本来就是堆空间中的最后一块，另一种是前面的已经被占用了</span></div><div class="line">                                ptr-&gt;pre-&gt;next = NULL;</div><div class="line">                        <span class="keyword">else</span>    </div><div class="line">                                first_block = NULL;</div><div class="line">                        brk(ptr);       <span class="comment">//重新设置break指针的值，因为无论堆内存空间中是否为空，释放掉之后都要重新设置</span></div><div class="line">                }</div><div class="line">        }</div><div class="line">}</div></pre></td></tr></table></figure>
+
+<p><br><br>具体的free函数的实现如上代码所示，基本的都思路是这样的：</p>
+<ol>
+<li>首先要判断传递进来的指针是不是有效的</li>
+<li>设置这一块的free值为1，表示已经释放掉了</li>
+<li>查看前面有没有可以合并的</li>
+<li>查看后面有没有合并的</li>
+<li>都没有的话，很可能前面和后面都已经被占用，或者我们此时释放的这块就是堆内存空间中的最后一块。</li>
+<li>如果真的是最后一块，那么就把链表的头部设置为NULL,并重新设置break指针。<br><br></li>
+</ol>
+<h2 id="realloc函数的实现">realloc函数的实现</h2>
+<p><br><br>感觉还是首先要了解一下realloc函数的作用吧。妹的，coding的时候才发现，长期不写代码我连快排都忘了，realloc这种函数都忘了功能了。<br>realloc这个函数的功能主要是重新分配内存块。函数接受两个参数，一个是原来分配的内存地址，另外一个是重新要分配的内存大小。如果已经分配的空间大于等于size，就应该返回原来的分配地址而不用重新分配。如果重新要分配的大小比原来已经分配的空间还要小，那么可以把剩余的空闲空间进行合并。如果新要求分配的内存空间原有的大小满足不了需求的话，那么如果原来的内存空间后面有空闲区域，可以选择合并，如果没有，那么就只能重新再找地方分配。分配完所需要的空间之后，要把原来的数据都要复制到新的区域内。</p>
+<ol>
+<li>首先要实现的就是复制数据的函数</li>
+</ol>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">void</span> copy_data(t_block start, t_block end){</div><div class="line"></div><div class="line">        size_t *sdata, *edata;</div><div class="line">        size_t i;</div><div class="line">        sdata = (size_t *)start-&gt;magic_ptr;</div><div class="line">        edata = (size_t *)end-&gt;magic_ptr;</div><div class="line">        <span class="keyword">for</span>(i = <span class="number">0</span>; (i * <span class="number">8</span>) &lt; start-&gt;size && (i * <span class="number">8</span>) &lt; end-&gt;size; i++)</div><div class="line">                edata[i] = sdata[i];</div><div class="line">}</div></pre></td></tr></table></figure>
+
+<ol>
+<li>然后就是实现realloc函数了</li>
+</ol>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">void</span> *realloc(<span class="keyword">void</span> *p, size_t size){</div><div class="line"></div><div class="line">        size_t s;</div><div class="line">        t_block newone,b;</div><div class="line">        <span class="keyword">void</span> *new_ptr;</div><div class="line">        <span class="keyword">if</span>(!p)          <span class="comment">//如果指针为空则默认执行malloc函数</span></div><div class="line">                <span class="keyword">return</span> <span class="built_in">malloc</span>(size);</div><div class="line"></div><div class="line">        <span class="keyword">if</span>(judge_ptr(p))        <span class="comment">//查看p是不是malloc返回的指针</span></div><div class="line">        {</div><div class="line">                s = align8(size);</div><div class="line">                b = get_block_add(p);</div><div class="line">                <span class="keyword">if</span>(b-&gt;size&gt;=s)                  <span class="comment">//如果原来分配的大小大于要求的，那么就不再重新分配</span></div><div class="line">                {</div><div class="line"></div><div class="line">                        <span class="keyword">if</span>(b-&gt;size-s&gt;=(BLOCK_SIZE+<span class="number">8</span>))   <span class="comment">//在满足自身要求的同时还有可以分裂的空间</span></div><div class="line">                        {</div><div class="line">                                split_block(b,s);</div><div class="line">                        }</div><div class="line">                }</div><div class="line">                <span class="keyword">else</span>                                    <span class="comment">//如果本身的空间不够，看是否可以向后进行扩展</span></div><div class="line">                {</div><div class="line"></div><div class="line">                        <span class="keyword">if</span>(b-&gt;next&&b-&gt;<span class="built_in">free</span>)</div><div class="line">                        {</div><div class="line">                                <span class="keyword">if</span>((b-&gt;size+BLOCK_SIZE+b-&gt;next-&gt;size)&gt;=s)       <span class="comment">//如果加上后面的空间满足要求大小</span></div><div class="line">                                {</div><div class="line">                                        merge_block(b);</div><div class="line">                                         <span class="keyword">if</span>(b-&gt;size-s&gt;=(BLOCK_SIZE+<span class="number">8</span>))   <span class="comment">//在满足自身要求的同时还有可以分裂的空间</span></div><div class="line">                                        {</div><div class="line">                                                split_block(b,s);</div><div class="line">                                        }</div><div class="line"></div><div class="line"></div><div class="line">                                }</div><div class="line">                        }</div><div class="line"></div><div class="line">                        <span class="keyword">else</span>                            <span class="comment">//向后的空间不能扩展且现有的空间又满足不了需求就只能重新malloc一段内存然后复制数据</span></div><div class="line">                        {</div><div class="line"></div><div class="line">                                        new_ptr = <span class="built_in">malloc</span>(size);</div><div class="line">                                        <span class="keyword">if</span>(!new_ptr)</div><div class="line">                                                <span class="keyword">return</span> NULL;</div><div class="line">                                        t_block temp_ptr = get_block_add(new_ptr);</div><div class="line">                                        copy_data(b,temp_ptr);</div><div class="line">                                        <span class="built_in">free</span>(p);                                <span class="comment">//数据复制过去之后，旧的空间里面的东西也没用了。要删除掉，防止内存泄露</span></div><div class="line">                                        <span class="keyword">return</span> new_ptr;</div><div class="line">                        }</div><div class="line">                }</div><div class="line">                <span class="keyword">return</span> p;</div><div class="line">        }</div><div class="line">        <span class="keyword">return</span> NULL;</div><div class="line"></div><div class="line">}</div></pre></td></tr></table></figure>
+
+<p><br><br><br></p>
+<h2 id="最后的测试和总结">最后的测试和总结</h2>
+<p><br></p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">int</span> main()</div><div class="line">{</div><div class="line">        <span class="keyword">int</span> i = <span class="number">0</span>;</div><div class="line">        <span class="keyword">int</span> *p = (<span class="keyword">int</span>*)<span class="built_in">malloc</span>(<span class="keyword">sizeof</span>(<span class="keyword">int</span>)*<span class="number">5</span>);</div><div class="line">        <span class="keyword">for</span>(i = <span class="number">2</span>; i &lt;= <span class="number">6</span>; i++)</div><div class="line">                <span class="built_in">scanf</span>(<span class="string">"%d"</span>,&p[i]);</div><div class="line">        <span class="keyword">for</span>(i = <span class="number">2</span>; i &lt;= <span class="number">6</span>; i++)</div><div class="line">                <span class="built_in">printf</span>(<span class="string">"p[%d] = %d\n"</span>, i,p[i]);</div><div class="line"></div><div class="line">        <span class="keyword">return</span> <span class="number">0</span>;</div><div class="line">}</div></pre></td></tr></table></figure>
+
+<p><br><br>到此为止，和malloc有关的函数就都实现了。自己在机器上测了一个malloc的功能，其他的比如free这些感觉看不出来效果，所以就没试，只试了一个malloc。但是发现了一个奇怪的问题，就是，开辟空间正常，但是输入和输出必须在2这个下标以后输入和输出才能够正常的看到我们所输入的结果。我怀疑是size_t s = align8(size);这个代码，8字节对齐的事情，感觉正好差了0和1这两个下标的元素的大小。字节对齐这东西一直没搞清，CSAPP里面有，到时候好好学学。希望看这篇文章的人能帮我验证验证吧，了解了原理之后，有时间再验证这些细节了，主要是不知道出现什么结果算是正确，比如free，释放之后感觉要gdb调试看看内存才行。<br><br></p>
+<h2 id="源代码：戳我">源代码：<a href="https://github.com/fengzixu/malloc-fuction" target="_blank" rel="external">戳我</a></h2>
+<p><br><br><br></p>
+<h2 id="Important_tips：">Important tips：</h2>
+<ol>
+<li>每一次在开辟新的内存的时候，都是利用修改Break指针来进行的，这也就说明，一开始，堆中是没有任何实际的内存空间映射在物理内存中的。直到我们确实有需求要在堆中开辟空间，malloc函数才通过更改break指针来把虚拟的地址段映射到物理内存中。从堆起始地址到break之间的地址空间为映射好的，可以供进程访问；而从break往上，是未映射的地址空间，如果访问这段空间则程序会报错。</li>
+<li>往往在释放内存的时候，都不是真正的进行释放内存，而只是更改了meta数据块（保存了malloc实际开辟数据区的一些元信息）中的free这一字段的值。从某种意义上来讲,内存是很脏的，他每次在写数据的时候都不是“擦干净在写”而是覆盖的直接写上去。</li>
+<li>个人感觉，对内存的管理，貌似一直就是对象meta数据块这样信息的管理，类似于进程控制块，整个堆内存空间哪里能用，哪里空闲，都是通过每一块的meta数据块中的信息进行存取的，每一块中的所有信息都能够在meta数据块中的各个字段体现出来。感觉蛮方便的。</li>
+</ol>
+  
+	</div>
+		<footer class="article-footer clearfix">
+<div class="article-catetags">
+
+<div class="article-categories">
+  <span></span>
+  <a class="article-category-link" href="/categories/OS/">OS</a>
+</div>
+
+
+  <div class="article-tags">
+  
+  <span></span> <a href="/tags/os/">os</a>
+  </div>
+
+</div>
+
+
+<div class="article-share" id="share">
+
+  <div data-url="http://fengzixu.net/2014/11/19/自己实现和malloc有关的函数/" data-title="自己实现和malloc有关的函数 | FengZiXu&#39;s Blog" data-tsina="http://weibo.com/3626507773" class="share clearfix">
+  </div>
+
+</div>
+</footer>   	       
+	</article>
+	
+<nav class="article-nav clearfix">
+ 
+ <div class="prev" >
+ <a href="/2014/11/26/初探Windows网络编程/" title="初探Windows网络编程">
+  <strong>上一篇：</strong><br/>
+  <span>
+  初探Windows网络编程</span>
+</a>
+</div>
+
+
+<div class="next">
+<a href="/2014/11/12/重读CSAPP（第一章）/"  title="重读CSAPP（第一章）">
+ <strong>下一篇：</strong><br/> 
+ <span>重读CSAPP（第一章）
+</span>
+</a>
+</div>
+
+</nav>
+
+	
+<section class="comment">
+	<div class="ds-thread"></div>
+</section>
+
+
+</div>  
+      <div class="openaside"><a class="navbutton" href="#" title="显示侧边栏"></a></div>
+
+  <div id="toc" class="toc-aside">
+  <strong class="toc-title">文章目录</strong>
+ 
+ <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#malloc的自我介绍"><span class="toc-number">1.</span> <span class="toc-text">malloc的自我介绍</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Linux内存管理"><span class="toc-number">2.</span> <span class="toc-text">Linux内存管理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Linux进程级内存管理"><span class="toc-number">3.</span> <span class="toc-text">Linux进程级内存管理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#对堆的管理"><span class="toc-number">4.</span> <span class="toc-text">对堆的管理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#brk与sbrk"><span class="toc-number">5.</span> <span class="toc-text">brk与sbrk</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Linux给进程的资源限制"><span class="toc-number">6.</span> <span class="toc-text">Linux给进程的资源限制</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#malloc函数的实现"><span class="toc-number">7.</span> <span class="toc-text">malloc函数的实现</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#寻找合适的block"><span class="toc-number">7.1.</span> <span class="toc-text">寻找合适的block</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#分配一个新的Block"><span class="toc-number">7.2.</span> <span class="toc-text">分配一个新的Block</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#解决内碎片问题"><span class="toc-number">7.3.</span> <span class="toc-text">解决内碎片问题</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#mallco函数的具体实现"><span class="toc-number">7.4.</span> <span class="toc-text">mallco函数的具体实现</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#calloc函数的实现"><span class="toc-number">8.</span> <span class="toc-text">calloc函数的实现</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#free函数的实现"><span class="toc-number">9.</span> <span class="toc-text">free函数的实现</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#realloc函数的实现"><span class="toc-number">10.</span> <span class="toc-text">realloc函数的实现</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#最后的测试和总结"><span class="toc-number">11.</span> <span class="toc-text">最后的测试和总结</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#源代码：戳我"><span class="toc-number">12.</span> <span class="toc-text">源代码：戳我</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Important_tips："><span class="toc-number">13.</span> <span class="toc-text">Important tips：</span></a></li></ol>
+ 
+  </div>
+
+<div id="asidepart">
+<div class="closeaside"><a class="closebutton" href="#" title="隐藏侧边栏"></a></div>
+<aside class="clearfix">
+
+  <div>
+<script charset="Shift_JIS" src="http://chabudai.sakura.ne.jp/blogparts/honehoneclock/honehone_clock_wh.js"></script>
+</div>
+
+
+  
+<div class="categorieslist">
+	<p class="asidetitle">分类</p>
+		<ul>
+		
+			<li><a href="/categories/CSAPP/" title="CSAPP">CSAPP<sup>2</sup></a></li>
+		
+			<li><a href="/categories/Life/" title="Life">Life<sup>1</sup></a></li>
+		
+			<li><a href="/categories/OS/" title="OS">OS<sup>2</sup></a></li>
+		
+			<li><a href="/categories/Windows/" title="Windows">Windows<sup>2</sup></a></li>
+		
+			<li><a href="/categories/密码学/" title="密码学">密码学<sup>1</sup></a></li>
+		
+			<li><a href="/categories/计算机网络/" title="计算机网络">计算机网络<sup>1</sup></a></li>
+		
+		</ul>
+</div>
+
+
+  
+<div class="tagslist">
+	<p class="asidetitle">标签</p>
+		<ul class="clearfix">
+		
+			<li><a href="/tags/读书笔记/" title="读书笔记">读书笔记<sup>6</sup></a></li>
+		
+			<li><a href="/tags/os/" title="os">os<sup>5</sup></a></li>
+		
+			<li><a href="/tags/csapp/" title="csapp">csapp<sup>2</sup></a></li>
+		
+			<li><a href="/tags/Windows-socket/" title="Windows socket">Windows socket<sup>1</sup></a></li>
+		
+			<li><a href="/tags/Life/" title="Life">Life<sup>1</sup></a></li>
+		
+			<li><a href="/tags/基础知识/" title="基础知识">基础知识<sup>1</sup></a></li>
+		
+			<li><a href="/tags/计算机网络/" title="计算机网络">计算机网络<sup>1</sup></a></li>
+		
+		</ul>
+</div>
+
+
+  <div class="linkslist">
+  <p class="asidetitle">友情链接</p>
+    <ul>
+      <li><a href="http://www.sdc1992.com/" target="_blank" title="WuChong">大川哥哥's Blog</a></li>
+      <li><a href="http://blog.csdn.net/xr_acmer" target="_blank" title="Hexo">My CSDN</a></li>
+    </ul>
+</div>
+
+  <div class="weiboshow">
+  <p class="asidetitle">新浪微博</p>
+ <iframe width="100%" height="550" class="share_self"  frameborder="0" scrolling="no" src="http://widget.weibo.com/weiboshow/index.php?language=&width=0&height=550&fansRow=2&ptype=1&speed=0&skin=1&isTitle=1&noborder=1&isWeibo=1&isFans=1&uid=3626507773&verifier=41ebbe82&dpc=1"></iframe>
+</div>
+
+
+  <div class="rsspart">
+	<a href="/atom.xml" target="_blank" title="rss">RSS 订阅</a>
+</div>
+
+</aside>
+</div>
+    </div>
+    <footer><div id="footer" >
+	
+	<div class="line">
+		<span></span>
+		<div class="author"></div>
+	</div>
+	
+	
+	<section class="info">
+		<p> 我会拼命的像个疯子一样的活着 <br/>
+			I would like a madman alive</p>
+	</section>
+	 
+	<div class="social-font" class="clearfix">
+		
+		<a href="http://weibo.com/3626507773" target="_blank" class="icon-weibo" title="weibo"></a>
+		
+		
+		<a href="https://github.com/fengzixu" target="_blank" class="icon-github" title="github"></a>
+		
+		
+		
+		
+		
+		
+		
+	</div>
+		<p class="copyright">Powered by <a href="http://hexo.io" target="_blank" title="hexo">hexo</a> and Theme by <a href="https://github.com/wuchong/jacman" target="_blank" title="Pacman">Jacman</a> © 2015 
+		
+		<a href="http://fengzixu.net/about" target="_blank" title="FengZiXu">FengZiXu</a>
+		
+		</p>
+</div>
+</footer>
+    <script src="/js/jquery-2.0.3.min.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.navbar').click(function(){
+    $('header nav').toggleClass('shownav');
+  });
+  var myWidth = 0;
+  function getSize(){
+    if( typeof( window.innerWidth ) == 'number' ) {
+      myWidth = window.innerWidth;
+    } else if( document.documentElement && document.documentElement.clientWidth) {
+      myWidth = document.documentElement.clientWidth;
+    };
+  };
+  var m = $('#main'),
+      a = $('#asidepart'),
+      c = $('.closeaside'),
+      o = $('.openaside');
+  $(window).resize(function(){
+    getSize(); 
+    if (myWidth >= 1024) {
+      $('header nav').removeClass('shownav');
+    }else
+    {
+      m.removeClass('moveMain');
+      a.css('display', 'block').removeClass('fadeOut');
+      o.css('display', 'none');
+      
+      $('#toc.toc-aside').css('display', 'none');
+        
+    }
+  });
+  c.click(function(){
+    a.addClass('fadeOut').css('display', 'none');
+    o.css('display', 'block').addClass('fadeIn');
+    m.addClass('moveMain');
+  });
+  o.click(function(){
+    o.css('display', 'none').removeClass('beforeFadeIn');
+    a.css('display', 'block').removeClass('fadeOut').addClass('fadeIn');      
+    m.removeClass('moveMain');
+  });
+  $(window).scroll(function(){
+    o.css("top",Math.max(80,260-$(this).scrollTop()));
+  });
+});
+</script>
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var ai = $('.article-content>iframe'),
+      ae = $('.article-content>embed'),
+      t  = $('#toc'),
+      h  = $('article h2')
+      ah = $('article h2'),
+      ta = $('#toc.toc-aside'),
+      o  = $('.openaside'),
+      c  = $('.closeaside');
+  if(ai.length>0){
+    ai.wrap('<div class="video-container" />');
+  };
+  if(ae.length>0){
+   ae.wrap('<div class="video-container" />');
+  };
+  if(ah.length==0){
+    t.css('display','none');
+  }else{
+    c.click(function(){
+      ta.css('display', 'block').addClass('fadeIn');
+    });
+    o.click(function(){
+      ta.css('display', 'none');
+    });
+    $(window).scroll(function(){
+      ta.css("top",Math.max(140,320-$(this).scrollTop()));
+    });
+  };
+});
+</script>
+
+
+<script type="text/javascript">
+$(document).ready(function(){ 
+  var $this = $('.share'),
+      url = $this.attr('data-url'),
+      encodedUrl = encodeURIComponent(url),
+      title = $this.attr('data-title'),
+      tsina = $this.attr('data-tsina'),
+      description = $this.attr('description');
+  var html = [
+  '<a href="#" class="overlay" id="qrcode"></a>',
+  '<div class="qrcode clearfix"><span>扫描二维码分享到微信朋友圈</span><a class="qrclose" href="#share"></a><strong>Loading...Please wait</strong><img id="qrcode-pic" data-src="http://s.jiathis.com/qrcode.php?url=' + encodedUrl + '"/></div>',
+  '<a href="https://www.facebook.com/sharer.php?u=' + encodedUrl + '" class="article-share-facebook" target="_blank" title="Facebook"></a>',
+  '<a href="https://twitter.com/intent/tweet?url=' + encodedUrl + '" class="article-share-twitter" target="_blank" title="Twitter"></a>',
+  '<a href="#qrcode" class="article-share-qrcode" title="QRcode"></a>',
+  '<a href="http://widget.renren.com/dialog/share?resourceUrl=' + encodedUrl + '&srcUrl=' + encodedUrl + '&title=' + title +'" class="article-share-renren" target="_blank" title="人人"></a>',
+  '<a href="http://service.weibo.com/share/share.php?title='+title+'&url='+encodedUrl +'&ralateUid='+ tsina +'&searchPic=true&style=number' +'" class="article-share-weibo" target="_blank" title="Weibo"></a>',
+  '<span title="Share to"></span>'
+  ].join('');
+  $this.append(html);
+  $('.article-share-qrcode').click(function(){
+    var imgSrc = $('#qrcode-pic').attr('data-src');
+    $('#qrcode-pic').attr('src', imgSrc);
+    $('#qrcode-pic').load(function(){
+        $('.qrcode strong').text(' ');
+    });
+  });
+});     
+</script>
+
+
+
+<script type="text/javascript">
+  var duoshuoQuery = {short_name:"fengzixu"};
+  (function() {
+    var ds = document.createElement('script');
+    ds.type = 'text/javascript';ds.async = true;
+    ds.src = '//static.duoshuo.com/embed.js';
+    ds.charset = 'UTF-8';
+    (document.getElementsByTagName('head')[0] 
+    || document.getElementsByTagName('body')[0]).appendChild(ds);
+  })();
+</script> 
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css" media="screen" type="text/css">
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+<script type="text/javascript">
+$(document).ready(function(){ 
+  $('.article-content').each(function(i){
+    $(this).find('img').each(function(){
+      if ($(this).parent().hasClass('fancybox')) return;
+      var alt = this.alt;
+      if (alt) $(this).after('<span class="caption">' + alt + '</span>');
+      $(this).wrap('<a href="' + this.src + '" title="' + alt + '" class="fancybox"></a>');
+    });
+    $(this).find('.fancybox').each(function(){
+      $(this).attr('rel', 'article' + i);
+    });
+  });
+  if($.fancybox){
+    $('.fancybox').fancybox();
+  }
+}); 
+</script>
+
+
+
+
+
+<div id="totop">
+<a title="返回顶部"><img src="/img/scrollup.png"/></a>
+</div>
+
+<script src="/js/totop.js"></script>
+
+
+
+
+  </body>
+</html>
